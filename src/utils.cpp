@@ -22,40 +22,7 @@
 #include <unistd.h>
 #endif
 
-#include "mdns_cpp/macros.hpp"
-
 namespace mdns_cpp {
-
-std::string getHostName() {
-  const char *hostname = "dummy-host";
-
-#ifdef _WIN32
-  WORD versionWanted = MAKEWORD(1, 1);
-  WSADATA wsaData;
-  if (WSAStartup(versionWanted, &wsaData)) {
-    const auto msg = "Error: Failed to initialize WinSock";
-    MDNS_LOG << msg << "\n";
-    throw std::runtime_error(msg);
-  }
-
-  char hostname_buffer[256];
-  DWORD hostname_size = (DWORD)sizeof(hostname_buffer);
-  if (GetComputerNameA(hostname_buffer, &hostname_size)) {
-    hostname = hostname_buffer;
-  }
-
-#else
-
-  char hostname_buffer[256];
-  const size_t hostname_size = sizeof(hostname_buffer);
-  if (gethostname(hostname_buffer, hostname_size) == 0) {
-    hostname = hostname_buffer;
-  }
-
-#endif
-
-  return hostname;
-}
 
 std::string ipv4AddressToString(char *buffer, size_t capacity, const sockaddr_in *addr, size_t addrlen) {
   char host[NI_MAXHOST] = {0};
