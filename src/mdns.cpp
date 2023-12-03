@@ -62,27 +62,15 @@ int mDNS::openClientSockets(int *sockets, int max_sockets, int port) {
         struct sockaddr_in *saddr = (struct sockaddr_in *)unicast->Address.lpSockaddr;
         if ((saddr->sin_addr.S_un.S_un_b.s_b1 != 127) || (saddr->sin_addr.S_un.S_un_b.s_b2 != 0) ||
             (saddr->sin_addr.S_un.S_un_b.s_b3 != 0) || (saddr->sin_addr.S_un.S_un_b.s_b4 != 1)) {
-          int log_addr = 0;
           if (first_ipv4) {
             service_address_ipv4_ = saddr->sin_addr.S_un.S_addr;
             first_ipv4 = 0;
-            log_addr = 1;
           }
           has_ipv4_ = 1;
           if (num_sockets < max_sockets) {
             saddr->sin_port = htons((unsigned short)port);
             int sock = mdns_socket_open_ipv4(saddr);
-            if (sock >= 0) {
-              sockets[num_sockets++] = sock;
-              log_addr = 1;
-            } else {
-              log_addr = 0;
-            }
-          }
-          if (log_addr) {
-            char buffer[128];
-            const auto addr = ipv4AddressToString(buffer, sizeof(buffer), saddr, sizeof(struct sockaddr_in));
-            std::cout << "Local IPv4 address: " << addr << "\n";
+            if (sock >= 0) sockets[num_sockets++] = sock;
           }
         }
       } else if (unicast->Address.lpSockaddr->sa_family == AF_INET6) {
@@ -91,27 +79,15 @@ int mDNS::openClientSockets(int *sockets, int max_sockets, int port) {
         static constexpr unsigned char localhost_mapped[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0x7f, 0, 0, 1};
         if ((unicast->DadState == NldsPreferred) && memcmp(saddr->sin6_addr.s6_addr, localhost, 16) &&
             memcmp(saddr->sin6_addr.s6_addr, localhost_mapped, 16)) {
-          int log_addr = 0;
           if (first_ipv6) {
             memcpy(service_address_ipv6_, &saddr->sin6_addr, 16);
             first_ipv6 = 0;
-            log_addr = 1;
           }
           has_ipv6_ = 1;
           if (num_sockets < max_sockets) {
             saddr->sin6_port = htons((unsigned short)port);
             int sock = mdns_socket_open_ipv6(saddr);
-            if (sock >= 0) {
-              sockets[num_sockets++] = sock;
-              log_addr = 1;
-            } else {
-              log_addr = 0;
-            }
-          }
-          if (log_addr) {
-            char buffer[128];
-            const auto addr = ipv6AddressToString(buffer, sizeof(buffer), saddr, sizeof(struct sockaddr_in6));
-            std::cout << "Local IPv6 address: " << addr << "\n";
+            if (sock >= 0) sockets[num_sockets++] = sock;
           }
         }
       }
@@ -126,7 +102,7 @@ int mDNS::openClientSockets(int *sockets, int max_sockets, int port) {
   struct ifaddrs *ifa = nullptr;
 
   if (getifaddrs(&ifaddr) < 0) {
-    std::cout << "Unable to get interface addresses\n";
+    std::cerr << "Unable to get interface addresses\n";
   }
 
   int first_ipv4 = 1;
@@ -139,27 +115,15 @@ int mDNS::openClientSockets(int *sockets, int max_sockets, int port) {
     if (ifa->ifa_addr->sa_family == AF_INET) {
       struct sockaddr_in *saddr = (struct sockaddr_in *)ifa->ifa_addr;
       if (saddr->sin_addr.s_addr != htonl(INADDR_LOOPBACK)) {
-        int log_addr = 0;
         if (first_ipv4) {
           service_address_ipv4_ = saddr->sin_addr.s_addr;
           first_ipv4 = 0;
-          log_addr = 1;
         }
         has_ipv4_ = 1;
         if (num_sockets < max_sockets) {
           saddr->sin_port = htons(port);
           int sock = mdns_socket_open_ipv4(saddr);
-          if (sock >= 0) {
-            sockets[num_sockets++] = sock;
-            log_addr = 1;
-          } else {
-            log_addr = 0;
-          }
-        }
-        if (log_addr) {
-          char buffer[128];
-          const auto addr = ipv4AddressToString(buffer, sizeof(buffer), saddr, sizeof(struct sockaddr_in));
-          std::cout << "Local IPv4 address: " << addr << "\n";
+          if (sock >= 0) sockets[num_sockets++] = sock;
         }
       }
     } else if (ifa->ifa_addr->sa_family == AF_INET6) {
@@ -167,27 +131,15 @@ int mDNS::openClientSockets(int *sockets, int max_sockets, int port) {
       static constexpr unsigned char localhost[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
       static constexpr unsigned char localhost_mapped[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0x7f, 0, 0, 1};
       if (memcmp(saddr->sin6_addr.s6_addr, localhost, 16) && memcmp(saddr->sin6_addr.s6_addr, localhost_mapped, 16)) {
-        int log_addr = 0;
         if (first_ipv6) {
           memcpy(service_address_ipv6_, &saddr->sin6_addr, 16);
           first_ipv6 = 0;
-          log_addr = 1;
         }
         has_ipv6_ = 1;
         if (num_sockets < max_sockets) {
           saddr->sin6_port = htons(port);
           int sock = mdns_socket_open_ipv6(saddr);
-          if (sock >= 0) {
-            sockets[num_sockets++] = sock;
-            log_addr = 1;
-          } else {
-            log_addr = 0;
-          }
-        }
-        if (log_addr) {
-          char buffer[128] = {};
-          const auto addr = ipv6AddressToString(buffer, sizeof(buffer), saddr, sizeof(struct sockaddr_in6));
-          std::cout << "Local IPv6 address: " << addr << "\n";
+          if (sock >= 0) sockets[num_sockets++] = sock;
         }
       }
     }
@@ -238,7 +190,7 @@ mDNS::mDNS() {
   // Initialize Winsock
   const int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
   if (iResult != 0) {
-    std::cout << "WSAStartup failed: " << iResult << "\n";
+    std::cerr << "WSAStartup failed: " << iResult << "\n";
   }
 #endif
 }
@@ -256,11 +208,9 @@ void mDNS::executeQuery(const std::string &service, mdns_record_type qtype, void
 
   if (num_sockets <= 0) {
     const auto msg = "Failed to open any client sockets";
-    std::cout << msg << "\n";
+    std::cerr << msg << "\n";
     throw std::runtime_error(msg);
   }
-
-  std::cout << "Opened " << num_sockets << " socket" << (num_sockets ? "s" : "") << " for mDNS query\n";
 
   size_t capacity = 2048;
   void *buffer = malloc(capacity);
@@ -272,7 +222,7 @@ void mDNS::executeQuery(const std::string &service, mdns_record_type qtype, void
     query_id[isock] =
         mdns_query_send(sockets[isock], qtype, service.data(), strlen(service.data()), buffer, capacity, 0);
     if (query_id[isock] < 0) {
-      std::cout << "Failed to send mDNS query: " << strerror(errno) << "\n";
+      std::cerr << "Failed to send mDNS query: " << strerror(errno) << "\n";
     }
   }
 
@@ -310,7 +260,6 @@ void mDNS::executeQuery(const std::string &service, mdns_record_type qtype, void
   for (int isock = 0; isock < num_sockets; ++isock) {
     mdns_socket_close(sockets[isock]);
   }
-  std::cout << "Closed socket" << (num_sockets ? "s" : "") << "\n";
 }
 
 void mDNS::executeDiscovery() {
@@ -318,15 +267,14 @@ void mDNS::executeDiscovery() {
   int num_sockets = openClientSockets(sockets, sizeof(sockets) / sizeof(sockets[0]), 0);
   if (num_sockets <= 0) {
     const auto msg = "Failed to open any client sockets";
-    std::cout << msg << "\n";
+    std::cerr << msg << "\n";
     throw std::runtime_error(msg);
   }
 
-  std::cout << "Opened " << num_sockets << " socket" << (num_sockets ? "s" : "") << " for DNS-SD\n";
   std::cout << "Sending DNS-SD discovery\n";
   for (int isock = 0; isock < num_sockets; ++isock) {
     if (mdns_discovery_send(sockets[isock])) {
-      std::cout << "Failed to send DNS-DS discovery: " << strerror(errno) << " \n";
+      std::cerr << "Failed to send DNS-DS discovery: " << strerror(errno) << " \n";
     }
   }
 
@@ -368,7 +316,6 @@ void mDNS::executeDiscovery() {
   for (int isock = 0; isock < num_sockets; ++isock) {
     mdns_socket_close(sockets[isock]);
   }
-  std::cout << "Closed socket" << (num_sockets ? "s" : "") << "\n";
 }
 
 }  // namespace mdns_cpp
