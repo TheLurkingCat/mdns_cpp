@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <memory>
+#include <vector>
 
 #include "mdns.h"
 #include "mdns_cpp/utils.hpp"
@@ -16,8 +17,6 @@
 #include <string.h>
 
 namespace mdns_cpp {
-
-static mdns_record_txt_t txtbuffer[128];
 
 int mDNS::openClientSockets(int *sockets, int max_sockets, int port) {
   // When sending, each socket can only send to one network interface
@@ -152,14 +151,9 @@ int mDNS::openClientSockets(int *sockets, int max_sockets, int port) {
   return num_sockets;
 }
 
-using queryCallbackFunc = int (*)(int sock, const struct sockaddr *from, size_t addrlen, mdns_entry_type_t entry,
-                                  uint16_t query_id, uint16_t rtype, uint16_t rclass, uint32_t ttl, const void *data,
-                                  size_t size, size_t name_offset, size_t name_length, size_t record_offset,
-                                  size_t record_length, void *user_data);
-
-int query_callback(int, const struct sockaddr *from, size_t addrlen, mdns_entry_type_t entry, uint16_t, uint16_t rtype,
-                   uint16_t rclass, uint32_t ttl, const void *data, size_t size, size_t name_offset, size_t,
-                   size_t record_offset, size_t record_length, void *user_data) {
+int query_callback(int, const struct sockaddr *, size_t, mdns_entry_type_t, uint16_t, uint16_t rtype, uint16_t,
+                   uint32_t, const void *data, size_t size, size_t, size_t, size_t record_offset, size_t record_length,
+                   void *user_data) {
   if (user_data == nullptr) return 0;
 
   mdnsRecord &output = *reinterpret_cast<mdnsRecord *>(user_data);
@@ -213,14 +207,13 @@ void mDNS::executeQuery(const std::string &service, mdns_record_type qtype, void
   }
 
   size_t capacity = 2048;
-  void *buffer = malloc(capacity);
-  void *user_data = 0;
+  std::vector<char> buffer(capacity);
   size_t records;
 
   std::cout << "Sending mDNS query: " << service << "\n";
   for (int isock = 0; isock < num_sockets; ++isock) {
     query_id[isock] =
-        mdns_query_send(sockets[isock], qtype, service.data(), strlen(service.data()), buffer, capacity, 0);
+        mdns_query_send(sockets[isock], qtype, service.data(), strlen(service.data()), buffer.data(), capacity, 0);
     if (query_id[isock] < 0) {
       std::cerr << "Failed to send mDNS query: " << strerror(errno) << "\n";
     }
@@ -248,14 +241,13 @@ void mDNS::executeQuery(const std::string &service, mdns_record_type qtype, void
     if (res > 0) {
       for (int isock = 0; isock < num_sockets; ++isock) {
         if (FD_ISSET(sockets[isock], &readfs)) {
-          records += mdns_query_recv(sockets[isock], buffer, capacity, query_callback, userdata, query_id[isock]);
+          records +=
+              mdns_query_recv(sockets[isock], buffer.data(), capacity, query_callback, userdata, query_id[isock]);
         }
         FD_SET(sockets[isock], &readfs);
       }
     }
   } while (res > 0);
-
-  free(buffer);
 
   for (int isock = 0; isock < num_sockets; ++isock) {
     mdns_socket_close(sockets[isock]);
@@ -279,7 +271,7 @@ void mDNS::executeDiscovery() {
   }
 
   size_t capacity = 2048;
-  void *buffer = malloc(capacity);
+  std::vector<char> buffer(capacity);
   void *user_data = 0;
   size_t records;
 
@@ -305,13 +297,11 @@ void mDNS::executeDiscovery() {
     if (res > 0) {
       for (int isock = 0; isock < num_sockets; ++isock) {
         if (FD_ISSET(sockets[isock], &readfs)) {
-          records += mdns_discovery_recv(sockets[isock], buffer, capacity, query_callback, user_data);
+          records += mdns_discovery_recv(sockets[isock], buffer.data(), capacity, query_callback, user_data);
         }
       }
     }
   } while (res > 0);
-
-  free(buffer);
 
   for (int isock = 0; isock < num_sockets; ++isock) {
     mdns_socket_close(sockets[isock]);
